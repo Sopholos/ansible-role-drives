@@ -1,0 +1,11 @@
+---
+- name: prepare | cifs utility present
+  ansible.builtin.package:
+    name: 
+      - cifs-utils
+      - linux-modules-extra-azure 
+    state: present
+
+- name: mounting shares
+  include_tasks: mount-share.yaml
+  loop: "{{ share_mnts }}"

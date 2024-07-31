@@ -1,0 +1,41 @@
+#!/snap/bin/powershell -Command
+
+# {{ ansible_managed }}
+
+$ErrorActionPreference = "Stop"
+
+$start = Get-Date
+
+$scriptDir = Split-Path $PSCommandPath
+
+try {
+    Write-Output "Starting backup..."
+
+    $date = Get-Date -Format "yyyy-MM-dd_HH-mm_ss.fff"
+
+{% if item.lvm_volumes is defined %}
+  {% for lvm_volume in item.lvm_volumes %}
+    {% if lvm_volume.source is defined %}
+
+$source = `
+  {% for source in lvm_volume.source %}
+    @{ vg = "{{ source.vg }}"; lv = "{{ source.lv }}"; snapshotVL = "{{ source.snapshotVL }}"; mountPoint = "{{ source.mountPoint }}"; backup = "{{ source.backup | default('1') }}" }, `
+  {% endfor %}
+    @{};
+
+  & $scriptDir/Backup-LVM.ps1 `
+        -source $source `
+        -destination {{ lvm_volume.destination }}/$date `
+        -snapshotSize {{ lvm_volume.snapshotSize }} `
+        -backupType {{ lvm_volume.backupType }} `
+        -isXFS {{ lvm_volume.isXFS }}
+
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+    Write-Host "Backed up sucesfully"-ForegroundColor Green
+}
+finally {
+    Write-Host "Took: " ((Get-Date) - $start)
+}

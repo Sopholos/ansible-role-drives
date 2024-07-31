@@ -1,0 +1,55 @@
+---
+- name: prepare | dependencies
+  apt:
+    name:
+      - p7zip-full
+      - snapd
+
+- name: prepare | snap powershell
+  community.general.snap:
+    name:
+      - powershell
+    classic: true
+
+- name: prepare | copy PS scripts
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: u+rwx,g=,o=
+  with_items:
+    - { src: Backup-LVM.ps1, dest: /usr/local/bin/Backup-LVM.ps1 }
+    - { src: Backup-Folder.ps1, dest: /usr/local/bin/Backup-Folder.ps1 }
+    - { src: Create-LVMSnapshot.ps1, dest: /usr/local/bin/Create-LVMSnapshot.ps1 }
+    - { src: Drop-LVMSnapshot.ps1, dest: /usr/local/bin/Drop-LVMSnapshot.ps1 }
+
+- name: prepare | template file Backup-x.ps1
+  template:
+    src: Backup-Drives.ps1.j2
+    dest: "/usr/local/bin/Backup-{{ item.name }}.ps1"
+    owner: root
+    group: root
+    mode: u+rwx,g=,o=
+  with_items: "{{ drives_backup.backup_sets }}"
+  when: drives_backup.backup_sets is defined
+
+- name: override tmp_jobs to null
+  set_fact:
+    tmp_jobs:
+
+- name: prepare | creates a cron tasks for backup
+  set_fact:
+    cron_pure: "{{ item.cron }}"
+    cron_extra:
+      job: "/usr/local/bin/Backup-{{ item.name }}.ps1"
+      name: "Backup-{{ item.name }}"
+      user: root
+      cron_file: ansible_backup_drives
+      tag: "{{ item.tag | default('CRON_BACKUP') }}"
+  with_items: "{{ drives_backup.backup_sets }}"
+  when:
+    - drives_backup.backup_sets is defined
+  register: tmp_jobs
+
+- import_tasks: cron_jobs_prepare.yml

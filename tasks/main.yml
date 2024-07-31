@@ -1,0 +1,48 @@
+---
+- name: preparing zfs drives
+  include_tasks: 
+    file: prepare-zfs-drives.yaml
+    apply:
+      tags: [ drives ]
+  when: dev_zfs_mnts is defined
+  loop:
+    "{{ dev_zfs_mnts }}"
+  tags: [ drives ]
+
+- name: preparing ext4 drives
+  include_tasks: 
+    file: prepare-ext4-drives.yaml
+    apply:
+      tags: [ drives ]
+  when: dev_ext4_mnts is defined
+  loop:
+    "{{ dev_ext4_mnts }}"
+  tags: [ drives ]
+
+- name: preparing xfs drives
+  import_tasks: prepare-xfs-drives.yaml
+  when: dev_xfs_mnts is defined
+  tags: [ drives ]
+
+- name: network shares
+  import_tasks: mount-shares.yaml
+  when: share_mnts is defined
+  tags: [ shares ]
+
+- name: linking folders
+  include_tasks: 
+    file: link-folders.yaml
+    apply:
+      tags: [ links ]
+  when: link_fldrs is defined
+  loop:
+    "{{ link_fldrs }}"
+  tags: [ links ]
+
+- name: preparing backup
+  import_tasks: prepare-backup.yaml
+  when: drives_backup is defined
+  tags: [ backup ]
+
+- import_tasks: cron_jobs_register.yml
+  tags: [ backup ]

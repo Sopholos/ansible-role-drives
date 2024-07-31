@@ -1,0 +1,48 @@
+---
+- name: prepare | volume groups
+  lvg:
+    vg: "{{ item.vg }}"
+    pvs: "{{ item.dev }}"
+  register: groups_info
+  loop:
+    "{{ dev_xfs_mnts }}"
+
+- name: prepare | logical volumes
+  community.general.lvol:
+    vg: "{{ item.item.vg }}"
+    lv: "{{ item.item.lv }}"
+    size: "{{ item.item.size }}"
+  loop:
+    "{{ groups_info.results }}"
+
+- name: prepare | create xfs on /dev/{vg}/{lv}
+  community.general.filesystem:
+    dev: "/dev/{{ item.item.vg }}/{{ item.item.lv }}"
+    fstype: xfs
+    state: present
+  loop: 
+    "{{ groups_info.results }}"
+
+- name: prepare | fetch the UUID of /dev/{vg}/{lv}
+  command: blkid -s UUID -o value "/dev/{{ item.item.vg }}/{{ item.item.lv }}"
+  changed_when: false
+  register: blkid_out
+  loop:
+    "{{ groups_info.results }}"
+
+- name: prepare | create folders
+  file:
+    path: "{{ item.item.dest }}"
+    state: directory
+  loop:
+    "{{ groups_info.results }}"
+
+- name: prepare | mount /dev/{vg}/{lv} by UUID
+  ansible.posix.mount:
+    path: "{{ item.item.item.dest }}"
+    src: UUID={{ item.stdout }}
+    fstype: xfs
+    opts: defaults
+    state: mounted
+  loop: 
+    "{{ blkid_out.results }}"

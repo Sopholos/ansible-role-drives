@@ -1,0 +1,34 @@
+---
+# share_mnts:
+#   - { dest: /mnt/backup, uri: //host/path/, login: "login", password: "password" }
+
+# dev_xfs_mnts:      
+#   - { dev: /dev/sdb, vg: data, lv: data, size: 10%VG, dest: /mnt/data }
+
+# dev_zfs_mnts:   
+#   - { dev: [ /dev/sdc ], pool: mnttemp, dest: /mnt/temp,   options: ["ashift=12"], bigOptions: ["compression=lz4"] }
+
+# link_fldrs:
+#     - { src: /mnt/temp/kafka-log, dest: /var/log/kafka }
+
+# drives_backup:
+#   backup_sets:
+#     - name: "KafkaData"
+#       cron:
+#         weekday: 2
+#         hour: 12
+#         minute: 0
+#         month: 1
+#         day: 1
+#         #special_time: reboot
+#       lvm_volumes:
+#         - sourceVG: kafka_data_vg
+#           sourceLV: kafka_data_lv
+#           destination: /mnt/backup-kafka/Kafka-test
+#           snapshotSize: 5G
+#           snapshotVL: kafka_backup
+#           mountPoint: /mnt/kafka-backup
+#           backupType: Backup7z
+#           isXFS: 1
+
+prepare_drives_crontab_role_path: ../../../linux/role_cron

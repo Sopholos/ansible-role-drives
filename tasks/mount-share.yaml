@@ -1,0 +1,14 @@
+---
+- name: prepare | create folders {{ item.dest }}
+  file:
+    path: "{{ item.dest }}"
+    state: directory
+
+- name: prepare | mount share {{ item.uri }}
+  ansible.posix.mount:
+    src: "{{ item.uri }}"
+    path: "{{ item.dest }}"
+    fstype: cifs
+    opts: 'username={{ item.login }},password={{ item.password }}{% if item.extra_opts is defined %},{{item.extra_opts}}{% endif %}'
+    state: mounted
+  no_log: true

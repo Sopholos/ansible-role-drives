@@ -1,0 +1,37 @@
+---
+- name: prepare | create src folders
+  file:
+    path: "{{ item.src }}"
+    state: directory
+
+- name: prepare | ensure parent dest folders exists
+  file:
+    path: "{{ item.dest | dirname }}"
+    state: directory
+
+- name: prepare | link folders {{ item.src }} to {{ item.dest }}
+  file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+
+- name: prepare | folders group {{ item.group }} to {{ item.dest }}
+  file:
+    path: "{{ item.dest }}"
+    group: "{{ item.group }}"
+    state: directory
+  when: item.group is defined
+
+- name: prepare | folders owner {{ item.owner }} to {{ item.dest }}
+  file:
+    path: "{{ item.dest }}"
+    owner: "{{ item.owner }}"
+    state: directory
+  when: item.owner is defined
+
+- name: prepare | folders mode {{ item.mode }} to {{ item.dest }}
+  file:
+    path: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    state: directory
+  when: item.mode is defined

@@ -1,0 +1,24 @@
+---
+- name: prepare | create ext4 on {{ item.dev }}
+  community.general.filesystem:
+    fstype: ext4
+    dev: "{{ item.dev }}"
+    opts: "{{ item.options }}"
+
+- name: prepare | fetch the UUID of {{ item.dev }}
+  command: blkid -s UUID -o value "{{ item.dev }}"
+  changed_when: false
+  register: blkid_out
+
+- name: prepare | create folder {{ item.dest }}
+  file:
+    path: "{{ item.dest }}"
+    state: directory
+
+- name: prepare | mount {{ item.dev }} by UUID to {{ item.dest }}
+  ansible.posix.mount:
+    path: "{{ item.dest }}"
+    src: UUID={{ blkid_out.stdout }}
+    fstype: ext4
+    opts: defaults
+    state: mounted
