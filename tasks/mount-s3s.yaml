@@ -1,0 +1,30 @@
+---
+- name: prepare | s3 dependencies
+  ansible.builtin.package:
+    name: s3fs
+  when: ansible_os_family == 'Debian'
+
+- name: prepare | s3 dependencies
+  ansible.builtin.package:
+    name:
+      - epel-release
+      - s3fs-fuse
+  when: ansible_os_family == 'RedHat'
+
+- name: prepare | ensure "{{ dev_s3s_mnts.passwd_file }}" folder is present
+  file:
+    path: "{{ dev_s3s_mnts.passwd_file | dirname }}"
+    state: directory
+
+- name: prepare | access keys
+  template:
+    src: passwd-s3fs.j2
+    dest: "{{ dev_s3s_mnts.passwd_file }}"
+    mode: 0600
+    owner: "{{ ansible_user_id }}"
+  with_items: "{{ dev_s3s_mnts.buckets }}"
+  no_log: True
+
+- name: mounting s3
+  include_tasks: mount-s3.yaml
+  loop: "{{ dev_s3s_mnts.mounts }}"

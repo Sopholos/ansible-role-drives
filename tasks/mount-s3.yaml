@@ -1,0 +1,13 @@
+---
+- name: Make sure the mount point {{ item.mountpoint }} of the bucket {{ item.bucket }} is present
+  file:
+    path: "{{ item.mountpoint }}"
+    state: directory
+
+- name: mount in fstab {{ item.bucket }} to {{ item.mountpoint }}
+  mount:
+    name: "{{ item.mountpoint }}"
+    src: "s3fs#{{ item.bucket }}"
+    fstype: fuse
+    opts: "_netdev,{{ item.options }},passwd_file={{ dev_s3s_mnts.passwd_file }}"
+    state: mounted

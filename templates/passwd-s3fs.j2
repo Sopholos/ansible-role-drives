@@ -1,0 +1,3 @@
+{% for bucket in dev_s3s_mnts.buckets %}
+{{ bucket.bucket }}:{{ bucket.accessKeyId | default('accessKeyId') }}:{{ bucket.secretAccessKey | default('secretAccessKey') }}
+{% endfor %}

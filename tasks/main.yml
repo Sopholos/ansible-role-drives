@@ -29,6 +29,11 @@
   when: share_mnts is defined
   tags: [ shares ]
 
+- name: s3 mounts
+  import_tasks: mount-s3s.yaml
+  when: dev_s3s_mnts is defined
+  tags: [ s3 ]
+
 - name: linking folders
   include_tasks: 
     file: link-folders.yaml
