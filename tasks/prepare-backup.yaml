@@ -1,15 +1,6 @@
 ---
-- name: prepare | dependencies
-  apt:
-    name:
-      - p7zip-full
-      - snapd
-
-- name: prepare | snap powershell
-  community.general.snap:
-    name:
-      - powershell
-    classic: true
+- name: prepare | powershell
+  import_tasks: prepare-powershell.yaml
 
 - name: prepare | copy PS scripts
   copy:
