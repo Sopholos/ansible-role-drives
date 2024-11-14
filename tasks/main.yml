@@ -51,3 +51,13 @@
 
 - import_tasks: cron_jobs_register.yml
   tags: [ backup ]
+
+- name: create swap disks
+  include_tasks: 
+    file: create-swap.yaml
+    apply:
+      tags: [ swap ]
+  when: swap_disks is defined
+  loop:
+    "{{ swap_disks }}"
+  tags: [ swap ]

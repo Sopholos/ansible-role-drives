@@ -1,0 +1,72 @@
+---
+- name: Check if swap partition exists
+  shell: swapon --show | grep "{{ item }}"
+  register: swap_check
+  ignore_errors: true
+
+- name: Get current size of swap partition
+  shell: blockdev --getsize64 "{{ item }}1"
+  register: current_swap_size
+  when: swap_check.rc == 0
+
+- name: Get disk size
+  shell: blockdev --getsize64 "{{ item }}"
+  register: disk_size
+  when: swap_check.rc == 0
+
+- name: Read device information (always use unit when probing)
+  community.general.parted: device=/dev/sdb unit=MiB
+  register: sdb_info
+
+- name: Deactivate swap
+  shell: swapoff "{{ item }}1"
+  when: swap_check.rc == 0
+  
+- name: Extend an existing partition to fill all available space
+  community.general.parted:
+    device: /dev/sdb
+    number: "{{ sdb_info.partitions | length }}"
+    part_end: "100%"
+    resize: true
+    state: present
+  when: swap_check.rc == 0
+
+- name: Create new swap partition if not exists
+  parted:
+    device: "{{ item }}"
+    number: 1
+    state: present
+    part_type: primary
+    fs_type: linux-swap
+    resize: yes
+  when: swap_check.rc != 0
+
+- name: Format the partition as swap
+  command: mkswap "{{ item }}1"
+  when: swap_check.rc != 0
+
+- name: Activate the swap partition
+  command: swapon "{{ item }}1"
+  when: swap_check.rc != 0
+
+- name: Ensure swap is activated
+  command: swapon -a
+  when: swap_check.rc == 0
+
+- name: Ensure swap size is correct
+  shell: |
+          if [ {{ current_swap_size.stdout | default('0') | int }} -lt {{ (disk_size.stdout | int) }} ]; 
+          then
+              swapoff "{{ item }}1"
+              mkswap "{{ item }}1"
+              swapon "{{ item }}1"
+          fi
+  when: swap_check.rc == 0
+
+- name: Ensure the swap partition is added to fstab
+  mount:
+    path: none
+    src: "{{ item }}1"
+    fstype: swap
+    opts: defaults
+    state: present
