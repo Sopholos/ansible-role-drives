@@ -5,12 +5,12 @@
   ignore_errors: true
 
 - name: Get current size of swap partition
-  shell: blockdev --getsize64 "{{ item }}1"
+  shell: blockdev --getsize64 "{{ item }}1" | awk '{printf("%.0f", $1/1000000000)}'
   register: current_swap_size
   when: swap_check.rc == 0
 
 - name: Get disk size
-  shell: blockdev --getsize64 "{{ item }}"
+  shell: blockdev --getsize64 "{{ item }}" | awk '{printf("%.0f", $1/1000000000)}'
   register: disk_size
   when: swap_check.rc == 0
 
@@ -20,7 +20,9 @@
 
 - name: Deactivate swap
   shell: swapoff "{{ item }}1"
-  when: swap_check.rc == 0
+  when: |
+    swap_check.rc == 0 and
+    (current_swap_size.stdout | default('0') | int) != (disk_size.stdout | int) 
   
 - name: Extend an existing partition to fill all available space
   community.general.parted:
@@ -29,7 +31,9 @@
     part_end: "100%"
     resize: true
     state: present
-  when: swap_check.rc == 0
+  when: |
+    swap_check.rc == 0 and
+    (current_swap_size.stdout | default('0') | int) != (disk_size.stdout | int) 
 
 - name: Create new swap partition if not exists
   parted:
@@ -51,7 +55,9 @@
 
 - name: Ensure swap is activated
   command: swapon -a
-  when: swap_check.rc == 0
+  when: |
+    swap_check.rc == 0 and
+    (current_swap_size.stdout | int) != (disk_size.stdout | int) 
 
 - name: Ensure swap size is correct
   shell: |
