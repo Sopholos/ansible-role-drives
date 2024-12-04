@@ -1,0 +1,25 @@
+---
+# Variable configuration.
+- name: Include OS-specific variables (Debian) {{ ansible_distribution }}-{{ ansible_distribution_version.split('.')[0] }}.
+  include_vars: "{{ ansible_distribution }}-{{ ansible_distribution_version.split('.')[0] }}.yml"
+  when: ansible_os_family == 'Debian'
+
+- name: Include OS-specific variables (RedHat) {{ ansible_os_family }}-{{ ansible_distribution_version.split('.')[0] }}.
+  include_vars: "{{ ansible_os_family }}-{{ ansible_distribution_version.split('.')[0] }}.yml"
+  when:
+  - ansible_os_family == 'RedHat'
+  - ansible_distribution != 'Fedora'
+  - ansible_distribution != 'Amazon'
+
+- name: Include OS-specific variables (Amazon) {{ ansible_distribution }}-{{ ansible_distribution_major_version }}.
+  include_vars: "{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+  when: ansible_distribution == 'Amazon'
+
+- name: Include OS-specific variables (Fedora) {{ ansible_distribution }}-{{ ansible_distribution_version.split('.')[0] }}.
+  include_vars: "{{ ansible_distribution }}-{{ ansible_distribution_version.split('.')[0] }}.yml"
+  when: ansible_distribution == 'Fedora'
+
+- name: Define dev_zfs_dependencies.
+  set_fact:
+    dev_zfs_dependencies: "{{ __dev_zfs_dependencies }}"
+  when: dev_zfs_dependencies is not defined

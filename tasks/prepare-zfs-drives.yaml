@@ -1,8 +1,7 @@
 ---
 - name: zfs | dependencies zfsutils-linux
   apt:
-    name:
-      - zfsutils-linux
+    name: "{{ dev_zfs_dependencies }}"
 
 - name: zfs | check pool existance
   command: zpool list -Ho name {{ item.pool }}

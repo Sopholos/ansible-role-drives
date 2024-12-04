@@ -1,4 +1,7 @@
 ---
+- import_tasks: variables.yml
+  tags: [ init ]
+
 - name: preparing zfs drives
   include_tasks: 
     file: prepare-zfs-drives.yaml

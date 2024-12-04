@@ -1,0 +1,4 @@
+---
+__dev_zfs_dependencies:
+  - zfs-dkms
+  - zfsutils-linux
