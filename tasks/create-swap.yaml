@@ -15,8 +15,8 @@
   when: swap_check.rc == 0
 
 - name: Read device information (always use unit when probing)
-  community.general.parted: device=/dev/sdb unit=MiB
-  register: sdb_info
+  community.general.parted: "device={{ item }} unit=MiB"
+  register: dev_info
 
 - name: Deactivate swap
   shell: swapoff "{{ item }}1"
@@ -26,8 +26,8 @@
   
 - name: Extend an existing partition to fill all available space
   community.general.parted:
-    device: /dev/sdb
-    number: "{{ sdb_info.partitions | length }}"
+    device: "{{ item }}"
+    number: "{{ dev_info.partitions | length }}"
     part_end: "100%"
     resize: true
     state: present
