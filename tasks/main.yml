@@ -64,3 +64,8 @@
   loop:
     "{{ swap_disks }}"
   tags: [ swap ]
+
+- name: preparing backup s3
+  import_tasks: backup-s3.yaml
+  when: backup_to_s3_enabled is defined
+  tags: [ backup-s3 ]

@@ -1,0 +1,107 @@
+---
+- name: Apply backup role only if enabled and backup_dirs is not empty
+  when:
+    - backup_to_s3_enabled | bool
+    - backup_dirs | length > 0
+  block:
+    - name: Ensure prerequisites for awscli are installed
+      ansible.builtin.package:
+        name:
+          - curl
+          - unzip
+        state: present
+      become: true
+      tags: [backup-s3]
+
+    - name: Download awscli ZIP archive
+      ansible.builtin.get_url:
+        url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+        dest: "/tmp/awscliv2.zip"
+        mode: "0644"
+      become: true
+      tags: [backup-s3]
+
+    - name: Unzip awscli archive
+      ansible.builtin.unarchive:
+        src: "/tmp/awscliv2.zip"
+        dest: "/tmp"
+        remote_src: yes
+      become: true
+      tags: [backup-s3]
+
+    - name: Install awscli
+      ansible.builtin.command:
+        cmd: "/tmp/aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update"
+        creates: "/usr/local/bin/aws"
+      become: true
+      tags: [backup-s3]
+
+    - name: Clean up awscli installation files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/awscliv2.zip"
+        - "/tmp/aws"
+      become: true
+      tags: [backup-s3]
+
+    - name: Ensure source directories exist
+      ansible.builtin.file:
+        path: "{{ item.source_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+      loop: "{{ backup_dirs }}"
+      tags: [backup-s3]
+
+    - name: Ensure cron log directory exists
+      ansible.builtin.file:
+        path: "{{ cron_zabbix_log_path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+      tags: [backup-s3]
+
+    - name: Copy backup script for each directory
+      ansible.builtin.template:
+        src: "backup_to_s3.sh.j2"
+        dest: "/usr/local/bin/backup_to_s3_{{ item.name }}.sh"
+        owner: root
+        group: root
+        mode: "0740"
+      become: true
+      loop: "{{ backup_dirs }}"
+      vars:
+        backup_dir: "{{ item }}"
+      tags: [backup-s3]
+
+    - name: Add backup cron job for each directory
+      ansible.builtin.cron:
+        name: "backup_to_s3_{{ ansible_fqdn }}_{{ item.name }}"
+        minute: "{{ (item.cron_schedule.minute if item.cron_schedule is defined else backup_cron_task.minute) | default('*') }}"
+        hour: "{{ (item.cron_schedule.hour if item.cron_schedule is defined else backup_cron_task.hour) | default('*') }}"
+        day: "{{ (item.cron_schedule.dom if item.cron_schedule is defined else backup_cron_task.dom) | default('*') }}"
+        month: "{{ (item.cron_schedule.month if item.cron_schedule is defined else backup_cron_task.month) | default('*') }}"
+        weekday: "{{ (item.cron_schedule.dow if item.cron_schedule is defined else backup_cron_task.dow) | default('*') }}"
+        user: "root"
+        job: "/usr/local/bin/backup_to_s3_{{ item.name }}.sh"
+        cron_file: "backup_{{ item.name }}"
+      become: true
+      loop: "{{ backup_dirs }}"
+      tags: [backup-s3]
+
+    - name: Add backup jobs to Zabbix discovery file
+      ansible.builtin.lineinfile:
+        path: "{{ cron_discovery_file }}"
+        line: "backup_to_s3_{{ ansible_fqdn }}_{{ item.name }}"
+        state: present
+        create: yes
+        mode: "0644"
+      become: true
+      loop: "{{ backup_dirs }}"
+      tags: [backup-s3]

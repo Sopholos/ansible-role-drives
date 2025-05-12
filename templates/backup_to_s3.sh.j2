@@ -1,0 +1,65 @@
+#!/bin/bash
+# {{ ansible_managed | comment }}
+
+# Установка PATH для окружения cron
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# Параметры
+BACKUP_SOURCE_DIR="{{ backup_dir.source_dir }}"
+S3_ENDPOINT="{{ backup_dir.s3_endpoint }}"
+S3_BUCKET="{{ backup_dir.s3_bucket }}"
+S3_FOLDER="{{ backup_dir.s3_folder }}"
+S3_ACCESS_KEY="{{ yandex_s3_key }}"
+S3_SECRET_KEY="{{ yandex_s3_secret }}"
+S3_PREFIX="{{ backup_s3_prefix }}"
+BACKUP_CRON_NAME="backup_to_s3_{{ ansible_fqdn }}_{{ backup_dir.name }}"
+LOG_FILE="{{ cron_zabbix_log_path }}/backup_s3_{{ backup_dir.name }}.log"
+ZABBIX_SERVER="{{ cron_zabbix_server }}"
+ZABBIX_CLIENT="{{ cron_zabbix_client }}"
+ZABBIX_KEY="trap[backup_to_s3_{{ ansible_fqdn }}_{{ backup_dir.name }}]"
+
+# Логирование с использованием tee для вывода в файл и stdout/stderr
+log_message() {
+    local MESSAGE="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    echo "$MESSAGE" | tee -a "$LOG_FILE"
+}
+
+# Отправка метрики в Zabbix
+send_zabbix_metric() {
+    local STATUS=$1
+    zabbix_sender -z "$ZABBIX_SERVER" -s "$ZABBIX_CLIENT" -k "$ZABBIX_KEY" -o "$STATUS" >> "$LOG_FILE" 2>&1
+    local ZABBIX_STATUS=$?
+    if [ $ZABBIX_STATUS -ne 0 ]; then
+        log_message "Warning: Failed to send metric to Zabbix (status: $STATUS)"
+    else
+        log_message "Sent metric to Zabbix (status: $STATUS)"
+    fi
+}
+
+# Проверка существования исходной директории
+if [ ! -d "$BACKUP_SOURCE_DIR" ]; then
+    log_message "Error: Source directory $BACKUP_SOURCE_DIR does not exist"
+    send_zabbix_metric 1
+    exit 1
+fi
+
+# Настройка AWS CLI
+export AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY"
+export AWS_SECRET_ACCESS_KEY="$S3_SECRET_KEY"
+export AWS_DEFAULT_REGION="ru-1"
+
+# Синхронизация папки с S3
+S3_PATH="s3://$S3_BUCKET/$S3_PREFIX/$S3_FOLDER/"
+log_message "Syncing directory $BACKUP_SOURCE_DIR to S3: $S3_PATH"
+aws --endpoint-url "$S3_ENDPOINT" s3 sync "$BACKUP_SOURCE_DIR" "$S3_PATH" --quiet --delete >>"$LOG_FILE" 2>&1
+SYNC_STATUS=$?
+if [ $SYNC_STATUS -ne 0 ]; then
+    log_message "Error: Failed to sync directory to S3"
+    send_zabbix_metric 3
+    exit 3
+fi
+
+# Успешное завершение
+log_message "Sync completed successfully"
+send_zabbix_metric 0
+exit 0
