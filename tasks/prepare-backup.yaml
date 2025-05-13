@@ -2,6 +2,59 @@
 - name: prepare | powershell
   import_tasks: prepare-powershell.yaml
 
+- name: prepare | install awscli via snap
+  community.general.snap:
+    name: aws-cli
+    classic: true
+  become: true
+  when: drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0
+
+- name: prepare | ensure AWS config directory exists
+  ansible.builtin.file:
+    path: "/root/.aws"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  become: true
+  when: drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0
+
+- name: prepare | configure AWS credentials for each backup set
+  ansible.builtin.copy:
+    content: |
+      {% for set in drives_backup.backup_sets %}
+      {% if set.s3 is defined %}
+      [{{ set.s3.profile }}]
+      aws_access_key_id = {{ set.s3.key }}
+      aws_secret_access_key = {{ set.s3.secret }}
+      {% endif %}
+      {% endfor %}
+    dest: "/root/.aws/credentials"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  no_log: true
+  when: drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0
+
+- name: prepare | configure AWS config for each backup set
+  ansible.builtin.copy:
+    content: |
+      {% for set in drives_backup.backup_sets %}
+      {% if set.s3 is defined %}
+      [profile {{ set.s3.profile }}]
+      region = ru-central1
+      output = json
+      endpoint_url = {{ set.s3.endpoint }}
+      {% endif %}
+      {% endfor %}
+    dest: "/root/.aws/config"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  when: drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0
+
 - name: prepare | copy PS scripts
   copy:
     src: "{{ item.src }}"
@@ -14,6 +67,8 @@
     - { src: Backup-Folder.ps1, dest: /usr/local/bin/Backup-Folder.ps1 }
     - { src: Create-LVMSnapshot.ps1, dest: /usr/local/bin/Create-LVMSnapshot.ps1 }
     - { src: Drop-LVMSnapshot.ps1, dest: /usr/local/bin/Drop-LVMSnapshot.ps1 }
+    - { src: Backup-S3Sync.ps1, dest: /usr/local/bin/Backup-S3Sync.ps1 }
+  become: true
 
 - name: prepare | template file Backup-x.ps1
   template:
@@ -23,13 +78,16 @@
     group: root
     mode: u+rwx,g=,o=
   with_items: "{{ drives_backup.backup_sets }}"
-  when: drives_backup.backup_sets is defined
+  when:
+    - drives_backup.backup_sets is defined
+    - item.type in ['s3_sync', 'lvm_local', 'local_archive']
+  become: true
 
 - name: override tmp_jobs to null
   set_fact:
     tmp_jobs:
 
-- name: prepare | creates a cron tasks for backup
+- name: prepare | create cron tasks for backup
   set_fact:
     cron_pure: "{{ item.cron }}"
     cron_extra:
@@ -41,6 +99,7 @@
   with_items: "{{ drives_backup.backup_sets }}"
   when:
     - drives_backup.backup_sets is defined
+    - item.type in ['s3_sync', 'lvm_local', 'local_archive']
   register: tmp_jobs
 
 - import_tasks: cron_jobs_prepare.yml

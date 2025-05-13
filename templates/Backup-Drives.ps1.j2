@@ -9,14 +9,14 @@ $start = Get-Date
 $scriptDir = Split-Path $PSCommandPath
 
 try {
-    Write-Output "Starting backup..."
+    Write-Output "Starting backup for {{ item.name }}..."
 
     $date = Get-Date -Format "yyyy-MM-dd_HH-mm_ss.fff"
 
-{% if item.lvm_volumes is defined %}
+{% if item.lvm_volumes is defined and item.lvm_volumes | length > 0 %}
+  # LVM backup (lvm_local)
   {% for lvm_volume in item.lvm_volumes %}
     {% if lvm_volume.source is defined %}
-
 $source = `
   {% for source in lvm_volume.source %}
     @{ vg = "{{ source.vg }}"; lv = "{{ source.lv }}"; snapshotVL = "{{ source.snapshotVL }}"; mountPoint = "{{ source.mountPoint }}"; backup = "{{ source.backup | default('1') }}" }, `
@@ -29,12 +29,34 @@ $source = `
         -snapshotSize {{ lvm_volume.snapshotSize }} `
         -backupType {{ lvm_volume.backupType }} `
         -isXFS {{ lvm_volume.isXFS }}
-
     {% endif %}
   {% endfor %}
+{% elif item.type == 's3_sync' and item.source_dir is defined %}
+  # S3 Sync backup
+  $sourceDir = "{{ item.source_dir }}"
+  if ($sourceDir) {
+      Write-Output "Starting S3 sync for {{ item.name }}"
+      & $scriptDir/Backup-S3Sync.ps1 `
+          -sourceDir "{{ item.source_dir }}" `
+          -s3Bucket "{{ item.s3.bucket | default('') }}" `
+          -s3Folder "{{ item.s3.folder | default('') }}" `
+          -s3Prefix "{{ item.s3.prefix | default('') }}" `
+          -s3Endpoint "{{ item.s3.endpoint | default('') }}" `
+          -s3Profile "{{ item.s3.profile | default('') }}"
+  }
+{% elif item.type == 'local_archive' and item.source_dir is defined %}
+  # Local archive backup
+  $sourceDir = "{{ item.source_dir }}"
+  if ($sourceDir) {
+      Write-Output "Starting local archive for {{ item.name }}"
+      & $scriptDir/Backup-Folder.ps1 `
+          -backupType "{{ item.backupType | default('BackupTar') }}" `
+          -source "{{ item.source_dir }}" `
+          -destination "{{ item.destination }}/$date"
+  }
 {% endif %}
 
-    Write-Host "Backed up sucesfully"-ForegroundColor Green
+    Write-Host "Backed up successfully" -ForegroundColor Green
 }
 finally {
     Write-Host "Took: " ((Get-Date) - $start)
