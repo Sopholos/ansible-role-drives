@@ -1,4 +1,8 @@
 ---
+- name: prepare | set s3_backups fact
+  set_fact:
+    s3_backups: "{{ drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0 }}"
+
 - name: prepare | powershell
   import_tasks: prepare-powershell.yaml
 
@@ -7,7 +11,7 @@
     name: aws-cli
     classic: true
   become: true
-  when: drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0
+  when: s3_backups
 
 - name: prepare | ensure AWS config directory exists
   ansible.builtin.file:
@@ -17,7 +21,7 @@
     group: root
     mode: "0700"
   become: true
-  when: drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0
+  when: s3_backups
 
 - name: prepare | configure AWS credentials for each backup set
   ansible.builtin.copy:
@@ -35,7 +39,7 @@
     mode: "0600"
   become: true
   no_log: true
-  when: drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0
+  when: s3_backups
 
 - name: prepare | configure AWS config for each backup set
   ansible.builtin.copy:
@@ -53,7 +57,7 @@
     group: root
     mode: "0600"
   become: true
-  when: drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0
+  when: s3_backups
 
 - name: prepare | copy PS scripts
   copy:
@@ -78,9 +82,6 @@
     group: root
     mode: u+rwx,g=,o=
   with_items: "{{ drives_backup.backup_sets }}"
-  when:
-    - drives_backup.backup_sets is defined
-    - item.type in ['s3_sync', 'lvm_local', 'local_archive']
   become: true
 
 - name: override tmp_jobs to null
@@ -97,9 +98,6 @@
       cron_file: ansible_backup_drives
       tag: "{{ item.tag | default('CRON_BACKUP') }}"
   with_items: "{{ drives_backup.backup_sets }}"
-  when:
-    - drives_backup.backup_sets is defined
-    - item.type in ['s3_sync', 'lvm_local', 'local_archive']
   register: tmp_jobs
 
 - import_tasks: cron_jobs_prepare.yml

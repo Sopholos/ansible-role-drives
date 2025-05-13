@@ -13,6 +13,8 @@ try {
 
     $date = Get-Date -Format "yyyy-MM-dd_HH-mm_ss.fff"
 
+    $backupPerformed = $false
+
 {% if item.lvm_volumes is defined and item.lvm_volumes | length > 0 %}
   # LVM backup (lvm_local)
   {% for lvm_volume in item.lvm_volumes %}
@@ -29,9 +31,13 @@ $source = `
         -snapshotSize {{ lvm_volume.snapshotSize }} `
         -backupType {{ lvm_volume.backupType }} `
         -isXFS {{ lvm_volume.isXFS }}
+    $backupPerformed = $true
     {% endif %}
   {% endfor %}
-{% elif item.type == 's3_sync' and item.source_dir is defined %}
+{% endif %}
+
+{% if item.source_dir is defined and item.type is defined %}
+  {% if item.type == 's3_sync' %}
   # S3 Sync backup
   $sourceDir = "{{ item.source_dir }}"
   if ($sourceDir) {
@@ -42,9 +48,11 @@ $source = `
           -s3Folder "{{ item.s3.folder | default('') }}" `
           -s3Prefix "{{ item.s3.prefix | default('') }}" `
           -s3Endpoint "{{ item.s3.endpoint | default('') }}" `
-          -s3Profile "{{ item.s3.profile | default('') }}"
+          -s3Profile "{{ item.s3.profile | default('') }}" `
+          -s3Delete {{ item.s3.delete | default('false') }}
+      $backupPerformed = $true
   }
-{% elif item.type == 'local_archive' and item.source_dir is defined %}
+  {% elif item.type == 'local_archive' %}
   # Local archive backup
   $sourceDir = "{{ item.source_dir }}"
   if ($sourceDir) {
@@ -53,10 +61,24 @@ $source = `
           -backupType "{{ item.backupType | default('BackupTar') }}" `
           -source "{{ item.source_dir }}" `
           -destination "{{ item.destination }}/$date"
+      $backupPerformed = $true
   }
+  {% else %}
+  Write-Output "Unknown backup type '{{ item.type }}' for {{ item.name }}"
+  exit 1
+  {% endif %}
 {% endif %}
 
+    if (-not $backupPerformed) {
+        Write-Output "No valid backup configuration found for {{ item.name }}"
+        exit 1
+    }
+
     Write-Host "Backed up successfully" -ForegroundColor Green
+}
+catch {
+    Write-Output "Backup failed for {{ item.name }}: $_"
+    exit 1
 }
 finally {
     Write-Host "Took: " ((Get-Date) - $start)
