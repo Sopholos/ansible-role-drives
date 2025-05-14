@@ -1,6 +1,43 @@
 ---
+- name: prepare | set s3_backups fact
+  set_fact:
+    s3_backups: "{{ drives_backup.backup_sets is defined and drives_backup.backup_sets | selectattr('s3', 'defined') | list | length > 0 }}"
+
 - name: prepare | powershell
   import_tasks: prepare-powershell.yaml
+
+- name: prepare | install awscli via snap
+  community.general.snap:
+    name: aws-cli
+    classic: true
+  when: s3_backups
+
+- name: prepare | ensure AWS config directory exists
+  ansible.builtin.file:
+    path: "/root/.aws"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: s3_backups
+
+- name: prepare | configure AWS credentials for each backup set
+  ansible.builtin.template:
+    src: aws_credentials.j2
+    dest: "/root/.aws/credentials"
+    owner: root
+    group: root
+    mode: "0600"
+  when: s3_backups
+
+- name: prepare | configure AWS config for each backup set
+  ansible.builtin.template:
+    src: aws_config.j2
+    dest: "/root/.aws/config"
+    owner: root
+    group: root
+    mode: "0600"
+  when: s3_backups
 
 - name: prepare | copy PS scripts
   copy:
@@ -14,6 +51,7 @@
     - { src: Backup-Folder.ps1, dest: /usr/local/bin/Backup-Folder.ps1 }
     - { src: Create-LVMSnapshot.ps1, dest: /usr/local/bin/Create-LVMSnapshot.ps1 }
     - { src: Drop-LVMSnapshot.ps1, dest: /usr/local/bin/Drop-LVMSnapshot.ps1 }
+    - { src: Backup-S3Sync.ps1, dest: /usr/local/bin/Backup-S3Sync.ps1 }
 
 - name: prepare | template file Backup-x.ps1
   template:
@@ -23,13 +61,12 @@
     group: root
     mode: u+rwx,g=,o=
   with_items: "{{ drives_backup.backup_sets }}"
-  when: drives_backup.backup_sets is defined
 
 - name: override tmp_jobs to null
   set_fact:
     tmp_jobs:
 
-- name: prepare | creates a cron tasks for backup
+- name: prepare | create cron tasks for backup
   set_fact:
     cron_pure: "{{ item.cron }}"
     cron_extra:
@@ -39,8 +76,6 @@
       cron_file: ansible_backup_drives
       tag: "{{ item.tag | default('CRON_BACKUP') }}"
   with_items: "{{ drives_backup.backup_sets }}"
-  when:
-    - drives_backup.backup_sets is defined
   register: tmp_jobs
 
 - import_tasks: cron_jobs_prepare.yml

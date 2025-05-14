@@ -9,19 +9,18 @@ $start = Get-Date
 $scriptDir = Split-Path $PSCommandPath
 
 try {
-    Write-Output "Starting backup..."
+    Write-Output "Starting backup for {{ item.name }}..."
 
     $date = Get-Date -Format "yyyy-MM-dd_HH-mm_ss.fff"
 
-{% if item.lvm_volumes is defined %}
-  {% for lvm_volume in item.lvm_volumes %}
-    {% if lvm_volume.source is defined %}
+    $backupPerformed = $false
 
-$source = `
-  {% for source in lvm_volume.source %}
-    @{ vg = "{{ source.vg }}"; lv = "{{ source.lv }}"; snapshotVL = "{{ source.snapshotVL }}"; mountPoint = "{{ source.mountPoint }}"; backup = "{{ source.backup | default('1') }}" }, `
-  {% endfor %}
-    @{};
+{% if item.lvm_volumes is defined and item.lvm_volumes | length > 0 %}
+  # LVM backup (lvm_local)
+  {% for lvm_volume in item.lvm_volumes %}
+$source = @(
+    @{ vg = "{{ lvm_volume.sourceVG }}"; lv = "{{ lvm_volume.sourceLV }}"; snapshotVL = "{{ lvm_volume.snapshotVL }}"; mountPoint = "{{ lvm_volume.mountPoint }}"; backup = "{{ lvm_volume.backup | default('1') }}" }
+);
 
   & $scriptDir/Backup-LVM.ps1 `
         -source $source `
@@ -29,12 +28,53 @@ $source = `
         -snapshotSize {{ lvm_volume.snapshotSize }} `
         -backupType {{ lvm_volume.backupType }} `
         -isXFS {{ lvm_volume.isXFS }}
-
-    {% endif %}
+    $backupPerformed = $true
   {% endfor %}
 {% endif %}
 
-    Write-Host "Backed up sucesfully"-ForegroundColor Green
+{% if item.source_dir is defined and item.type is defined %}
+  {% if item.type == 's3_sync' %}
+  # S3 Sync backup
+  $sourceDir = "{{ item.source_dir }}"
+  if ($sourceDir) {
+      Write-Output "Starting S3 sync for {{ item.name }}"
+      & $scriptDir/Backup-S3Sync.ps1 `
+          -sourceDir "{{ item.source_dir }}" `
+          -s3Bucket "{{ item.s3.bucket }}" `
+          -s3Folder "{{ item.s3.folder }}" `
+          -s3Prefix "{{ item.s3.prefix }}" `
+          -s3Endpoint "{{ item.s3.endpoint }}" `
+          -s3Profile "{{ item.s3.profile }}" `
+          -s3Delete ( {% if item.s3.delete | default(false) | bool %}$true{% else %}$false{% endif %} ? $true : $false )
+      $backupPerformed = $true
+  }
+  {% elif item.type == 'local_archive' %}
+  # Local archive backup
+  $sourceDir = "{{ item.source_dir }}"
+  if ($sourceDir) {
+      Write-Output "Starting local archive for {{ item.name }}"
+      & $scriptDir/Backup-Folder.ps1 `
+          -backupType "{{ item.backupType | default('BackupTar') }}" `
+          -source "{{ item.source_dir }}" `
+          -destination "{{ item.destination }}/$date"
+      $backupPerformed = $true
+  }
+  {% else %}
+  Write-Output "Unknown backup type '{{ item.type }}' for {{ item.name }}"
+  exit 1
+  {% endif %}
+{% endif %}
+
+    if (-not $backupPerformed) {
+        Write-Output "No valid backup configuration found for {{ item.name }}"
+        exit 1
+    }
+
+    Write-Host "Backed up successfully" -ForegroundColor Green
+}
+catch {
+    Write-Output "Backup failed for {{ item.name }}: $_"
+    exit 1
 }
 finally {
     Write-Host "Took: " ((Get-Date) - $start)
