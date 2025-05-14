@@ -17,11 +17,20 @@ $start = Get-Date
 try {
     $s3Path = "s3://$s3Bucket/$s3Prefix/$s3Folder/"
     Write-Output "Syncing $sourceDir to S3: $s3Path"
-    $awsCommand = "aws --profile $s3Profile --endpoint-url $s3Endpoint s3 sync $sourceDir $s3Path"
+
+    $awsArgs = @(
+        "--profile", $s3Profile,
+        "--endpoint-url", $s3Endpoint,
+        "s3", "sync",
+        $sourceDir,
+        $s3Path
+    )
+
     if ($s3Delete) {
-        $awsCommand += " --delete"
+        $awsArgs += "--delete"
     }
-    Invoke-Expression $awsCommand
+
+    aws @awsArgs
     if ($LASTEXITCODE -ne 0) { throw "aws s3 sync exited with code $LASTEXITCODE." }
 
     Write-Host "Synced successfully to S3" -ForegroundColor Green

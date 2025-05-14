@@ -44,8 +44,8 @@ $source = @(
           -s3Folder "{{ item.s3.folder }}" `
           -s3Prefix "{{ item.s3.prefix }}" `
           -s3Endpoint "{{ item.s3.endpoint }}" `
-          -s3Profile "{{ item.s3.profile }}" {% if item.s3.delete is defined and item.s3.delete | bool %}
-          -s3Delete $true{% endif %}
+          -s3Profile "{{ item.s3.profile }}" `
+          -s3Delete ( {% if item.s3.delete | default(false) | bool %}$true{% else %}$false{% endif %} ? $true : $false )
       $backupPerformed = $true
   }
   {% elif item.type == 'local_archive' %}
