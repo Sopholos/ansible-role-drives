@@ -10,7 +10,6 @@
   community.general.snap:
     name: aws-cli
     classic: true
-  become: true
   when: s3_backups
 
 - name: prepare | ensure AWS config directory exists
@@ -20,43 +19,24 @@
     owner: root
     group: root
     mode: "0700"
-  become: true
   when: s3_backups
 
 - name: prepare | configure AWS credentials for each backup set
-  ansible.builtin.copy:
-    content: |
-      {% for set in drives_backup.backup_sets %}
-      {% if set.s3 is defined %}
-      [{{ set.s3.profile }}]
-      aws_access_key_id = {{ set.s3.key }}
-      aws_secret_access_key = {{ set.s3.secret }}
-      {% endif %}
-      {% endfor %}
+  ansible.builtin.template:
+    src: aws_credentials.j2
     dest: "/root/.aws/credentials"
     owner: root
     group: root
     mode: "0600"
-  become: true
-  no_log: true
   when: s3_backups
 
 - name: prepare | configure AWS config for each backup set
-  ansible.builtin.copy:
-    content: |
-      {% for set in drives_backup.backup_sets %}
-      {% if set.s3 is defined %}
-      [profile {{ set.s3.profile }}]
-      region = ru-central1
-      output = json
-      endpoint_url = {{ set.s3.endpoint }}
-      {% endif %}
-      {% endfor %}
+  ansible.builtin.template:
+    src: aws_config.j2
     dest: "/root/.aws/config"
     owner: root
     group: root
     mode: "0600"
-  become: true
   when: s3_backups
 
 - name: prepare | copy PS scripts
@@ -72,7 +52,6 @@
     - { src: Create-LVMSnapshot.ps1, dest: /usr/local/bin/Create-LVMSnapshot.ps1 }
     - { src: Drop-LVMSnapshot.ps1, dest: /usr/local/bin/Drop-LVMSnapshot.ps1 }
     - { src: Backup-S3Sync.ps1, dest: /usr/local/bin/Backup-S3Sync.ps1 }
-  become: true
 
 - name: prepare | template file Backup-x.ps1
   template:
@@ -82,7 +61,6 @@
     group: root
     mode: u+rwx,g=,o=
   with_items: "{{ drives_backup.backup_sets }}"
-  become: true
 
 - name: override tmp_jobs to null
   set_fact:

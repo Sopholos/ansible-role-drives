@@ -18,12 +18,9 @@ try {
 {% if item.lvm_volumes is defined and item.lvm_volumes | length > 0 %}
   # LVM backup (lvm_local)
   {% for lvm_volume in item.lvm_volumes %}
-    {% if lvm_volume.source is defined %}
-$source = `
-  {% for source in lvm_volume.source %}
-    @{ vg = "{{ source.vg }}"; lv = "{{ source.lv }}"; snapshotVL = "{{ source.snapshotVL }}"; mountPoint = "{{ source.mountPoint }}"; backup = "{{ source.backup | default('1') }}" }, `
-  {% endfor %}
-    @{};
+$source = @(
+    @{ vg = "{{ lvm_volume.sourceVG }}"; lv = "{{ lvm_volume.sourceLV }}"; snapshotVL = "{{ lvm_volume.snapshotVL }}"; mountPoint = "{{ lvm_volume.mountPoint }}"; backup = "{{ lvm_volume.backup | default('1') }}" }
+);
 
   & $scriptDir/Backup-LVM.ps1 `
         -source $source `
@@ -32,7 +29,6 @@ $source = `
         -backupType {{ lvm_volume.backupType }} `
         -isXFS {{ lvm_volume.isXFS }}
     $backupPerformed = $true
-    {% endif %}
   {% endfor %}
 {% endif %}
 
@@ -44,12 +40,12 @@ $source = `
       Write-Output "Starting S3 sync for {{ item.name }}"
       & $scriptDir/Backup-S3Sync.ps1 `
           -sourceDir "{{ item.source_dir }}" `
-          -s3Bucket "{{ item.s3.bucket | default('') }}" `
-          -s3Folder "{{ item.s3.folder | default('') }}" `
-          -s3Prefix "{{ item.s3.prefix | default('') }}" `
-          -s3Endpoint "{{ item.s3.endpoint | default('') }}" `
-          -s3Profile "{{ item.s3.profile | default('') }}" `
-          -s3Delete {{ item.s3.delete | default('false') }}
+          -s3Bucket "{{ item.s3.bucket }}" `
+          -s3Folder "{{ item.s3.folder }}" `
+          -s3Prefix "{{ item.s3.prefix }}" `
+          -s3Endpoint "{{ item.s3.endpoint }}" `
+          -s3Profile "{{ item.s3.profile }}" {% if item.s3.delete is defined and item.s3.delete | bool %}
+          -s3Delete $true{% endif %}
       $backupPerformed = $true
   }
   {% elif item.type == 'local_archive' %}
