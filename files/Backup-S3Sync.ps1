@@ -7,7 +7,8 @@ param(
     [parameter(Mandatory=$true)][string]$s3Prefix,
     [parameter(Mandatory=$true)][string]$s3Endpoint,
     [parameter(Mandatory=$true)][string]$s3Profile,
-    [parameter(Mandatory=$false)][bool]$s3Delete = $false
+    [parameter(Mandatory=$false)][bool]$s3Delete = $false,
+    [parameter(Mandatory=$false)][string[]]$s3Exclude = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,6 +29,13 @@ try {
 
     if ($s3Delete) {
         $awsArgs += "--delete"
+    }
+
+    foreach ($excludePattern in $s3Exclude) {
+        if ($excludePattern) {
+            $awsArgs += "--exclude"
+            $awsArgs += $excludePattern
+        }
     }
 
     aws @awsArgs

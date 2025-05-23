@@ -45,7 +45,14 @@ $source = @(
           -s3Prefix "{{ item.s3.prefix }}" `
           -s3Endpoint "{{ item.s3.endpoint }}" `
           -s3Profile "{{ item.s3.profile }}" `
-          -s3Delete ( {% if item.s3.delete | default(false) | bool %}$true{% else %}$false{% endif %} ? $true : $false )
+          -s3Delete ( {% if item.s3.delete | default(false) | bool %}$true{% else %}$false{% endif %} ? $true : $false ) `
+          {% if item.s3.exclude is defined and item.s3.exclude | length > 0 %}
+          -s3Exclude @(
+              {% for exclude in item.s3.exclude %}
+              "{{ exclude }}"{{ "," if not loop.last }}
+              {% endfor %}
+          ){% endif %}
+ 
       $backupPerformed = $true
   }
   {% elif item.type == 'local_archive' %}
