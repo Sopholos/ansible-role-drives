@@ -3,8 +3,8 @@
 param(
     [parameter(Mandatory=$true)][string]$sourceDir,
     [parameter(Mandatory=$true)][string]$s3Bucket,
-    [parameter(Mandatory=$true)][string]$s3Folder,
-    [parameter(Mandatory=$true)][string]$s3Prefix,
+    [parameter(Mandatory=$false)][string]$s3Folder,
+    [parameter(Mandatory=$false)][string]$s3Prefix,
     [parameter(Mandatory=$true)][string]$s3Endpoint,
     [parameter(Mandatory=$true)][string]$s3Profile,
     [parameter(Mandatory=$false)][bool]$s3Delete = $false,
@@ -16,7 +16,13 @@ $ErrorActionPreference = "Stop"
 $start = Get-Date
 
 try {
-    $s3Path = "s3://$s3Bucket/$s3Prefix/$s3Folder/"
+    $s3Path = "s3://$s3Bucket/"
+    if ($s3Prefix) {
+        $s3Path += "$s3Prefix/"
+    }
+    if ($s3Folder) {
+        $s3Path += "$s3Folder/"
+    }
     Write-Output "Syncing $sourceDir to S3: $s3Path"
 
     $awsArgs = @(
