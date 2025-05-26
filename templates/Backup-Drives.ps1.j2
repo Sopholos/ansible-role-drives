@@ -41,7 +41,6 @@ $source = @(
       & $scriptDir/Backup-S3Sync.ps1 `
           -sourceDir "{{ item.source_dir }}" `
           -s3Bucket "{{ item.s3.bucket }}" `
-          -s3Prefix "{{ item.s3.prefix | default('') }}" `
           -s3Folder "{{ item.s3.folder | default('') }}" `
           -s3Endpoint "{{ item.s3.endpoint }}" `
           -s3Profile "{{ item.s3.profile }}" `
