@@ -41,11 +41,12 @@ $source = @(
       & $scriptDir/Backup-S3Sync.ps1 `
           -sourceDir "{{ item.source_dir }}" `
           -s3Bucket "{{ item.s3.bucket }}" `
-          -s3Folder "{{ item.s3.folder }}" `
-          -s3Prefix "{{ item.s3.prefix }}" `
+          -s3Folder "{{ item.s3.folder | default('') }}" `
           -s3Endpoint "{{ item.s3.endpoint }}" `
           -s3Profile "{{ item.s3.profile }}" `
-          -s3Delete ( {% if item.s3.delete | default(false) | bool %}$true{% else %}$false{% endif %} ? $true : $false )
+          -s3Delete ${{ item.s3.delete | default(false) | bool }} `
+          -s3Exclude @("{{ item.s3.exclude | default([]) | join('", "') }}")
+ 
       $backupPerformed = $true
   }
   {% elif item.type == 'local_archive' %}

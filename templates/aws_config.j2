@@ -1,5 +1,5 @@
 {% for item in drives_backup.backup_sets if item.s3 is defined %}
-[{{ item.s3.profile }}]
+[profile {{ item.s3.profile }}]
 region={{ item.s3.region | default('ru-central1') }}
 output=json
 endpoint_url={{ item.s3.endpoint }}

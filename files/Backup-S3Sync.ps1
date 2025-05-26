@@ -3,11 +3,11 @@
 param(
     [parameter(Mandatory=$true)][string]$sourceDir,
     [parameter(Mandatory=$true)][string]$s3Bucket,
-    [parameter(Mandatory=$true)][string]$s3Folder,
-    [parameter(Mandatory=$true)][string]$s3Prefix,
+    [parameter(Mandatory=$false)][string]$s3Folder,
     [parameter(Mandatory=$true)][string]$s3Endpoint,
     [parameter(Mandatory=$true)][string]$s3Profile,
-    [parameter(Mandatory=$false)][bool]$s3Delete = $false
+    [parameter(Mandatory=$false)][bool]$s3Delete = $false,
+    [parameter(Mandatory=$false)][string[]]$s3Exclude = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,7 +15,10 @@ $ErrorActionPreference = "Stop"
 $start = Get-Date
 
 try {
-    $s3Path = "s3://$s3Bucket/$s3Prefix/$s3Folder/"
+    $s3Path = "s3://$s3Bucket/"
+    if ($s3Folder) {
+        $s3Path += "$s3Folder/"
+    }
     Write-Output "Syncing $sourceDir to S3: $s3Path"
 
     $awsArgs = @(
@@ -28,6 +31,13 @@ try {
 
     if ($s3Delete) {
         $awsArgs += "--delete"
+    }
+
+    foreach ($excludePattern in $s3Exclude) {
+        if ($excludePattern) {
+            $awsArgs += "--exclude"
+            $awsArgs += $excludePattern
+        }
     }
 
     aws @awsArgs
