@@ -2,3 +2,6 @@
 __dev_zfs_dependencies:
   - zfs-dkms
   - zfsutils-linux
+  
+__dev_zfs_ppa:
+  - ppa:arter97/zfs

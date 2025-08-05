@@ -1,4 +1,11 @@
 ---
+- name: zfs | add arter97 PPA for newer ZFS version
+  apt_repository:
+    repo: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop: "{{ dev_zfs_ppa }}"
+  
 - name: zfs | dependencies zfsutils-linux
   apt:
     name: "{{ dev_zfs_dependencies }}"
