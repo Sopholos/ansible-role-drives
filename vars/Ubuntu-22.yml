@@ -1,3 +1,5 @@
 ---
 __dev_zfs_dependencies:
   - zfsutils-linux
+
+__dev_zfs_ppa: []
