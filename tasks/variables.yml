@@ -23,3 +23,8 @@
   set_fact:
     dev_zfs_dependencies: "{{ __dev_zfs_dependencies }}"
   when: dev_zfs_dependencies is not defined
+
+- name: Define dev_zfs_ppa.
+  set_fact:
+    dev_zfs_ppa: "{{ __dev_zfs_ppa }}"
+  when: dev_zfs_ppa is not defined
